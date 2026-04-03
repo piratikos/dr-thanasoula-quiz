@@ -82,6 +82,16 @@ function getTips(archId, answers) {
   return tips.slice(0, 4);
 }
 
+// ═══ SEND TO GOOGLE SHEET ═══
+const SHEET_URL="https://script.google.com/macros/s/AKfycby9VDrAzaoqnRgQ-8X7kTJDHB6nkFAyLoII3LJvkLnpyC9sN0cnVl5jQ_jJ8vtzaAW3/exec";
+function sendToSheet(contact,answers,result){
+  const concern=answers.concern_f?.label||answers.concern_m?.label||"";
+  const age=answers.age?.value||"";
+  const ageRange=age<=30?"25-30":age<=40?"30-40":age<=50?"40-50":"50+";
+  const answersObj={};Object.entries(answers).forEach(([k,v])=>{if(v?.id)answersObj[k]=v.id;else if(v?.ids)answersObj[k]=v.ids.join(",");else if(v?.value)answersObj[k]=v.value});
+  fetch(SHEET_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain"},body:JSON.stringify({name:contact.name,email:contact.email,phone:contact.phone,age:ageRange,concern:concern,recommendation:result?.archetype?.exams?.[0]||"",answers:answersObj})}).catch(()=>{});
+}
+
 // ═══ QUESTIONS ═══
 const QS=[
   {id:"age",q:"Πόσο χρονών είστε;",type:"slider",min:25,max:70,step:1,unit:"ετών",
@@ -240,7 +250,7 @@ export default function Quiz(){
     {q.type==="slider"&&<><Sld q={q} v={sv} onChange={setSv}/><button onClick={()=>go(q.next,{value:sv,scores:q.scoring(sv)})} style={{width:"100%",padding:"18px",marginTop:20,border:"none",borderRadius:16,background:"linear-gradient(135deg,#8B6914,#C4953A)",color:"#fff",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 8px 32px rgba(139,105,20,0.25)"}}>Συνέχεια →</button></>}
     {q.type==="visual"&&<div style={{display:"flex",flexWrap:"wrap",gap:10}}>{q.options.map((o,i)=><Card key={o.id} o={o} i={i} n={q.options.length} sel={false} onClick={()=>go(o.next||q.next,o)}/>)}</div>}
     {q.type==="multi"&&<><div style={{display:"flex",flexWrap:"wrap",gap:10}}>{q.options.map((o,i)=><Card key={o.id} o={o} i={i} n={q.options.length} sel={ms.some(x=>x.id===o.id)} onClick={()=>setMs(p=>p.some(x=>x.id===o.id)?p.filter(x=>x.id!==o.id):[...p,o])}/>)}</div>{ms.length>0&&<button onClick={()=>{const m={};ms.forEach(o=>Object.entries(o.scores||{}).forEach(([k,v])=>{m[k]=(m[k]||0)+v}));go(q.next,{scores:m,ids:ms.map(o=>o.id)})}} style={{width:"100%",padding:"16px",marginTop:14,border:"none",borderRadius:16,background:"linear-gradient(135deg,#8B6914,#C4953A)",color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer"}}>Συνέχεια ({ms.length}) →</button>}</>}
-  </div>):!done&&q?.type==="contact"?(<div style={{animation:"fu .4s both"}}><h2 style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:"#1a1207",marginBottom:6}}>{q.q}</h2><p style={{fontSize:13,color:"#8B7355",marginBottom:20}}>{q.sub}</p><CF onSubmit={i=>{setCt(i);setDone(true)}}/></div>):r&&(
+  </div>):!done&&q?.type==="contact"?(<div style={{animation:"fu .4s both"}}><h2 style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:"#1a1207",marginBottom:6}}>{q.q}</h2><p style={{fontSize:13,color:"#8B7355",marginBottom:20}}>{q.sub}</p><CF onSubmit={i=>{setCt(i);setDone(true);const res=calc({...ans,contact:i});sendToSheet(i,ans,res)}}/></div>):r&&(
   /* ═══ RESULTS ═══ */
   <div>
     {/* Avatar + Score */}
